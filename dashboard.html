@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유선 일별 실적 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --skt: #378ADD;
+            --skt-light: #E8F4FD;
+            --skb: #D85A30;
+            --skb-light: #FDEEE8;
+            --bg: #F8F9FA;
+            --card: #FFFFFF;
+            --border: #E9ECEF;
+            --text: #212529;
+            --text-secondary: #868E96;
+            --positive: #FA5252;
+            --negative: #40C057;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif; background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.4; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 16px; }
+        
+        /* Header */
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; background: var(--card); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .logo { font-size: 20px; }
+        .title { font-size: 18px; font-weight: 700; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .brand-legend { display: flex; align-items: center; gap: 12px; background: var(--bg); padding: 6px 12px; border-radius: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .legend-dot.skt { background: var(--skt); }
+        .legend-dot.skb { background: var(--skb); }
+        .header-controls { display: flex; align-items: center; gap: 10px; }
+        .tab-group { display: flex; background: var(--bg); border-radius: 8px; padding: 3px; }
+        .tab { padding: 6px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; background: transparent; color: var(--text-secondary); transition: all 0.2s; }
+        .tab.active { background: var(--skt); color: white; }
+        .date-picker { display: flex; align-items: center; gap: 6px; background: var(--bg); padding: 6px 10px; border-radius: 8px; }
+        .date-picker input { border: none; background: transparent; font-size: 12px; font-weight: 600; color: var(--text); outline: none; cursor: pointer; }
+        
+        /* Section */
+        .section { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; border: 1px solid var(--border); }
+        .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .section-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .section-title .icon { font-size: 16px; }
+        
+        /* Brand Group Box */
+        .brand-group { border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+        .brand-group.skt { background: var(--skt-light); border-left: 4px solid var(--skt); }
+        .brand-group.skb { background: var(--skb-light); border-left: 4px solid var(--skb); }
+        .brand-group-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .brand-group-title.skt { color: var(--skt); }
+        .brand-group-title.skb { color: var(--skb); }
+        .brand-group-content { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        /* Performance Mini Table */
+        .perf-mini-table { width: 100%; font-size: 11px; background: white; border-radius: 8px; overflow: hidden; }
+        .perf-mini-table th, .perf-mini-table td { padding: 6px 8px; text-align: center; }
+        .perf-mini-table th { background: var(--bg); font-weight: 600; color: var(--text-secondary); font-size: 10px; }
+        .perf-mini-table .value { font-weight: 700; }
+        .progress-bar { height: 6px; background: #E9ECEF; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; }
+        .progress-fill.skt { background: var(--skt); }
+        .progress-fill.skb { background: var(--skb); }
+        
+        /* Channel Card */
+        .channel-card { background: white; border-radius: 8px; padding: 10px; }
+        .channel-card-title { font-size: 11px; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
+        .channel-table { width: 100%; font-size: 10px; }
+        .channel-table td { padding: 3px 4px; }
+        .channel-table .channel-name { font-weight: 600; }
+        .channel-table .right { text-align: right; }
+        
+        /* Grid Layouts */
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+        
+        /* Tier + Subscriber Row */
+        .tier-sub-row { display: grid; grid-template-columns: 200px 1fr; gap: 12px; margin-bottom: 14px; }
+        
+        /* Tier-Down Card */
+        .tier-card { background: var(--bg); border-radius: 8px; padding: 12px; height: 100%; display: flex; flex-direction: column; }
+        .tier-card-title { font-size: 11px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .tier-simple { display: flex; justify-content: space-around; flex: 1; align-items: center; }
+        .tier-item { text-align: center; }
+        .tier-brand { font-size: 10px; font-weight: 700; margin-bottom: 4px; }
+        .tier-brand.skt { color: var(--skt); }
+        .tier-brand.skb { color: var(--skb); }
+        .tier-value { font-size: 20px; font-weight: 700; }
+        .tier-unit { font-size: 11px; color: var(--text-secondary); }
+        
+        /* Subscriber Group */
+        .sub-group { background: var(--bg); border-radius: 8px; padding: 12px; }
+        .sub-group-title { font-size: 11px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .sub-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .sub-card { background: white; border-radius: 8px; padding: 10px; }
+        .sub-card-title { font-size: 11px; font-weight: 700; margin-bottom: 6px; text-align: center; }
+        .sub-chart-container { height: 60px; margin-bottom: 6px; }
+        .sub-values { display: flex; justify-content: space-around; }
+        .sub-value-item { text-align: center; }
+        .sub-brand { font-size: 9px; font-weight: 600; margin-bottom: 2px; }
+        .sub-brand.skt { color: var(--skt); }
+        .sub-brand.skb { color: var(--skb); }
+        .sub-num { font-size: 11px; font-weight: 700; }
+        
+        /* Mini Card */
+        .mini-card { background: var(--bg); border-radius: 8px; padding: 10px; text-align: center; }
+        .mini-card-title { font-size: 9px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 600; }
+        .mini-card-values { display: flex; justify-content: center; gap: 12px; }
+        .mini-value { text-align: center; }
+        .mini-brand { font-size: 9px; font-weight: 700; margin-bottom: 2px; }
+        .mini-brand.skt { color: var(--skt); }
+        .mini-brand.skb { color: var(--skb); }
+        .mini-num { font-size: 13px; font-weight: 700; }
+        .mini-unit { font-size: 9px; color: var(--text-secondary); }
+        
+        /* SQ Card */
+        .sq-card { background: var(--bg); border-radius: 8px; padding: 10px; text-align: center; }
+        .sq-product { font-size: 11px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+        .sq-row { display: flex; justify-content: center; gap: 16px; }
+        .sq-item { text-align: center; }
+        .sq-brand { font-size: 9px; font-weight: 700; margin-bottom: 2px; }
+        .sq-brand.skt { color: var(--skt); }
+        .sq-brand.skb { color: var(--skb); }
+        .sq-rate { font-size: 14px; font-weight: 700; }
+        .sq-count { font-size: 9px; color: var(--text-secondary); }
+        
+        /* Bottom Cards */
+        .bottom-section { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+        .bottom-card { background: var(--card); border-radius: 12px; padding: 14px; border: 1px solid var(--border); }
+        .bottom-card-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+        
+        /* Abnormal */
+        .abnormal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .abnormal-item { background: var(--bg); border-radius: 8px; padding: 12px; text-align: center; }
+        .abnormal-type { font-size: 10px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 600; }
+        .abnormal-total { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+        .abnormal-num { font-size: 22px; font-weight: 700; }
+        .abnormal-unit { font-size: 11px; color: var(--text-secondary); }
+        .abnormal-brands { display: flex; justify-content: center; gap: 16px; font-size: 10px; }
+        .abnormal-brand-item { display: flex; align-items: center; gap: 4px; }
+        .abnormal-brand-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .abnormal-brand-dot.skt { background: var(--skt); }
+        .abnormal-brand-dot.skb { background: var(--skb); }
+        
+        /* GR R/B Cards */
+        .gr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .gr-card { background: var(--bg); border-radius: 8px; padding: 12px; }
+        .gr-card-title { font-size: 11px; font-weight: 700; margin-bottom: 10px; text-align: center; color: var(--text); }
+        .gr-values { display: flex; justify-content: center; gap: 20px; }
+        .gr-item { text-align: center; }
+        .gr-brand { font-size: 10px; font-weight: 700; margin-bottom: 4px; }
+        .gr-brand.skt { color: var(--skt); }
+        .gr-brand.skb { color: var(--skb); }
+        .gr-num { font-size: 16px; font-weight: 700; }
+        .gr-unit { font-size: 10px; color: var(--text-secondary); }
+        .gr-badge-wrap { margin-top: 4px; }
+        
+        /* Badges */
+        .badge { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+        .badge.positive { background: rgba(250, 82, 82, 0.1); color: var(--positive); }
+        .badge.negative { background: rgba(64, 192, 87, 0.1); color: var(--negative); }
+        .rate-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+        .rate-badge.high { background: rgba(64, 192, 87, 0.15); color: #2F9E44; }
+        .rate-badge.medium { background: rgba(250, 176, 5, 0.15); color: #F59F00; }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .grid-6 { grid-template-columns: repeat(3, 1fr); }
+            .bottom-section { grid-template-columns: 1fr; }
+            .tier-sub-row { grid-template-columns: 1fr; }
+            .brand-group-content { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .grid-6 { grid-template-columns: repeat(2, 1fr); }
+            .sub-container { grid-template-columns: 1fr; }
+            .header { flex-direction: column; align-items: flex-start; }
+            .header-right { flex-direction: column; align-items: flex-start; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <span class="logo">📊</span>
+                <h1 class="title">유선 일별 실적 대시보드</h1>
+            </div>
+            <div class="header-right">
+                <div class="brand-legend">
+                    <div class="legend-item"><span class="legend-dot skt"></span> SKT</div>
+                    <div class="legend-item"><span class="legend-dot skb"></span> SKB</div>
+                </div>
+                <div class="header-controls">
+                    <div class="tab-group">
+                        <button class="tab active" onclick="switchTab('초고속', this)">초고속</button>
+                        <button class="tab" onclick="switchTab('방송', this)">방송</button>
+                    </div>
+                    <div class="date-picker">
+                        <span>📅</span>
+                        <input type="date" id="dateInput">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Service Section -->
+        <div class="section" id="serviceSection">
+            <div class="section-header">
+                <div class="section-title">
+                    <span class="icon">📈</span>
+                    <span id="sectionLabel">초고속 실적</span>
+                </div>
+            </div>
+            
+            <!-- SKT Group -->
+            <div class="brand-group skt">
+                <div class="brand-group-title skt">● SKT</div>
+                <div class="brand-group-content">
+                    <table class="perf-mini-table">
+                        <thead>
+                            <tr><th>구분</th><th>실적</th><th>목표</th><th>달성률</th></tr>
+                        </thead>
+                        <tbody id="sktPerfBody"></tbody>
+                    </table>
+                    <div class="channel-card">
+                        <div class="channel-card-title">채널별 실적</div>
+                        <table class="channel-table" id="sktChannelTable"></table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- SKB Group -->
+            <div class="brand-group skb">
+                <div class="brand-group-title skb">● SKB</div>
+                <div class="brand-group-content">
+                    <table class="perf-mini-table">
+                        <thead>
+                            <tr><th>구분</th><th>실적</th><th>목표</th><th>달성률</th></tr>
+                        </thead>
+                        <tbody id="skbPerfBody"></tbody>
+                    </table>
+                    <div class="channel-card">
+                        <div class="channel-card-title">채널별 실적</div>
+                        <table class="channel-table" id="skbChannelTable"></table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tier-Down + Subscriber Row -->
+            <div class="tier-sub-row">
+                <!-- Tier-Down -->
+                <div class="tier-card">
+                    <div class="tier-card-title"><span>📉</span> Tier-Down</div>
+                    <div class="tier-simple" id="tierdownContainer"></div>
+                </div>
+                
+                <!-- Subscriber Group -->
+                <div class="sub-group">
+                    <div class="sub-group-title"><span>👥</span> 누계 가입자</div>
+                    <div class="sub-container" id="subscriberContainer"></div>
+                </div>
+            </div>
+            
+            <!-- Financial Cards -->
+            <div class="section-title" style="margin-bottom: 10px;"><span class="icon">💰</span> 재무지표</div>
+            <div class="grid-6" id="financeContainer"></div>
+        </div>
+        
+        <!-- SQ Section -->
+        <div class="section">
+            <div class="section-title"><span class="icon">🎯</span> 상품별 유치율</div>
+            <div class="grid-6" id="sqContainer"></div>
+        </div>
+        
+        <!-- Bottom Section -->
+        <div class="bottom-section">
+            <div class="bottom-card">
+                <div class="bottom-card-title"><span>⚠️</span> 비정상 관리</div>
+                <div class="abnormal-grid" id="abnormalContainer"></div>
+            </div>
+            <div class="bottom-card">
+                <div class="bottom-card-title"><span>💵</span> GR R/B 단가</div>
+                <div class="gr-grid" id="grContainer"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const data = {
+            performance: {
+                "초고속": {
+                    SKT: { daily: { actual: 1250, target: 1400 }, monthly: { actual: 28500, target: 32000 }, yearly: { actual: 342000, target: 380000 } },
+                    SKB: { daily: { actual: 980, target: 1100 }, monthly: { actual: 21800, target: 25000 }, yearly: { actual: 261600, target: 300000 } }
+                },
+                "방송": {
+                    SKT: { daily: { actual: 890, target: 950 }, monthly: { actual: 19200, target: 21000 }, yearly: { actual: 230400, target: 250000 } },
+                    SKB: { daily: { actual: 720, target: 800 }, monthly: { actual: 15600, target: 17500 }, yearly: { actual: 187200, target: 210000 } }
+                }
+            },
+            channels: {
+                "초고속": {
+                    SKT: [{ name: "고객센터", actual: 450, target: 500, delta: 5.2 }, { name: "지역", actual: 620, target: 700, delta: -2.1 }, { name: "제휴", actual: 180, target: 200, delta: 12.3 }],
+                    SKB: [{ name: "고객센터", actual: 380, target: 420, delta: 3.8 }, { name: "지역", actual: 420, target: 480, delta: -1.5 }, { name: "HNS", actual: 120, target: 140, delta: 8.7 }, { name: "매집", actual: 60, target: 60, delta: -4.2 }]
+                },
+                "방송": {
+                    SKT: [{ name: "고객센터", actual: 320, target: 350, delta: 3.1 }, { name: "지역", actual: 420, target: 450, delta: -1.8 }, { name: "제휴", actual: 150, target: 150, delta: 8.5 }],
+                    SKB: [{ name: "고객센터", actual: 280, target: 300, delta: 2.5 }, { name: "지역", actual: 310, target: 350, delta: -2.3 }, { name: "HNS", actual: 85, target: 100, delta: 5.2 }, { name: "매집", actual: 45, target: 50, delta: -1.8 }]
+                }
+            },
+            subscribers: {
+                "초고속": {
+                    "1G": { weeks: ["1주", "2주", "3주", "4주"], skt: [138000, 140500, 142800, 145000], skb: [106000, 108200, 110500, 112000] },
+                    "Giga": { weeks: ["1주", "2주", "3주", "4주"], skt: [312000, 318000, 323500, 328000], skb: [232000, 237000, 241500, 245000] },
+                    "광랜": { weeks: ["1주", "2주", "3주", "4주"], skt: [158000, 161000, 164200, 167000], skb: [120000, 123000, 125800, 128000] }
+                },
+                "방송": {
+                    "ALL": { weeks: ["1주", "2주", "3주", "4주"], skt: [178000, 182000, 185500, 189000], skb: [134000, 137000, 139800, 142000] },
+                    "스탠다드": { weeks: ["1주", "2주", "3주", "4주"], skt: [147000, 150000, 153200, 156000], skb: [113000, 116000, 118700, 121000] },
+                    "이코노미": { weeks: ["1주", "2주", "3주", "4주"], skt: [74000, 76500, 79200, 82000], skb: [58000, 60200, 62100, 64000] }
+                }
+            },
+            tierdown: {
+                "초고속": { skt: 2.3, skb: 2.8, sktDelta: -0.3, skbDelta: 0.2 },
+                "방송": { skt: 3.2, skb: 3.8, sktDelta: 0.5, skbDelta: 0.3 }
+            },
+            finance: {
+                "초고속": {
+                    SKT: { billing: 4250, arpuCum: 32500, arpuNew: 34800, cost: 185000, sac: 125000, src: 45000 },
+                    SKB: { billing: 3180, arpuCum: 29800, arpuNew: 31800, cost: 168000, sac: 118000, src: 42000 }
+                },
+                "방송": {
+                    SKT: { billing: 2890, arpuCum: 28400, arpuNew: 30500, cost: 142000, sac: 98000, src: 38000 },
+                    SKB: { billing: 2120, arpuCum: 25600, arpuNew: 28100, cost: 128000, sac: 92000, src: 35000 }
+                }
+            },
+            sq: [
+                { product: "1G", sktRate: 78.5, sktCount: 1250, skbRate: 72.3, skbCount: 980 },
+                { product: "Giga", sktRate: 82.1, sktCount: 2150, skbRate: 76.8, skbCount: 1680 },
+                { product: "All", sktRate: 71.2, sktCount: 890, skbRate: 68.5, skbCount: 720 },
+                { product: "통합안심", sktRate: 45.2, sktCount: 560, skbRate: 38.7, skbCount: 420 },
+                { product: "Btv+", sktRate: 62.8, sktCount: 1120, skbRate: 55.3, skbCount: 890 },
+                { product: "AI5", sktRate: 28.4, sktCount: 320, skbRate: 22.1, skbCount: 245 }
+            ],
+            abnormal: {
+                shortterm: { total: 1546, delta: -3.2, skt: 892, skb: 654 },
+                rejoin: { total: 2232, delta: 1.8, skt: 1245, skb: 987 }
+            },
+            gr: {
+                bundle: { skt: 138000, skb: 124000, sktDelta: 2.5, skbDelta: -1.8 },
+                dong: { skt: 145000, sktDelta: 3.2 }
+            }
+        };
+        
+        let subCharts = [];
+        const fmt = n => n.toLocaleString();
+        const badge = v => `<span class="badge ${v >= 0 ? 'positive' : 'negative'}">${v >= 0 ? '▲' : '▼'} ${Math.abs(v).toFixed(1)}%</span>`;
+        const rateBadge = r => `<span class="rate-badge ${r >= 90 ? 'high' : 'medium'}">${r.toFixed(1)}%</span>`;
+        
+        function updatePerformance(tab) {
+            const labels = { daily: '일별', monthly: '월별', yearly: '연 누적' };
+            ['SKT', 'SKB'].forEach(brand => {
+                const d = data.performance[tab][brand];
+                const cls = brand.toLowerCase();
+                document.getElementById(`${cls}PerfBody`).innerHTML = ['daily', 'monthly', 'yearly'].map(r => {
+                    const rate = (d[r].actual / d[r].target * 100);
+                    return `<tr>
+                        <td style="font-weight:600">${labels[r]}</td>
+                        <td class="value">${fmt(d[r].actual)}</td>
+                        <td>${fmt(d[r].target)}</td>
+                        <td><div class="progress-bar"><div class="progress-fill ${cls}" style="width:${rate}%"></div></div><div style="font-size:9px;margin-top:2px">${rate.toFixed(1)}%</div></td>
+                    </tr>`;
+                }).join('');
+            });
+        }
+        
+        function updateChannels(tab) {
+            ['SKT', 'SKB'].forEach(brand => {
+                const ch = data.channels[tab][brand];
+                document.getElementById(`${brand.toLowerCase()}ChannelTable`).innerHTML = ch.map(c => {
+                    const rate = (c.actual / c.target * 100);
+                    return `<tr>
+                        <td class="channel-name">${c.name}</td>
+                        <td class="right" style="font-weight:700">${fmt(c.actual)}</td>
+                        <td class="right">${fmt(c.target)}</td>
+                        <td class="right">${rateBadge(rate)}</td>
+                        <td class="right">${badge(c.delta)}</td>
+                    </tr>`;
+                }).join('');
+            });
+        }
+        
+        function updateSubscribers(tab) {
+            subCharts.forEach(c => c.destroy());
+            subCharts = [];
+            const products = Object.keys(data.subscribers[tab]);
+            const container = document.getElementById('subscriberContainer');
+            
+            container.innerHTML = products.map((p, i) => {
+                const d = data.subscribers[tab][p];
+                return `<div class="sub-card">
+                    <div class="sub-card-title">${p}</div>
+                    <div class="sub-chart-container"><canvas id="subChart${i}"></canvas></div>
+                    <div class="sub-values">
+                        <div class="sub-value-item"><div class="sub-brand skt">SKT</div><div class="sub-num">${fmt(d.skt.slice(-1)[0])}</div></div>
+                        <div class="sub-value-item"><div class="sub-brand skb">SKB</div><div class="sub-num">${fmt(d.skb.slice(-1)[0])}</div></div>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            products.forEach((p, i) => {
+                const d = data.subscribers[tab][p];
+                const ctx = document.getElementById(`subChart${i}`).getContext('2d');
+                subCharts.push(new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: d.weeks,
+                        datasets: [
+                            { label: 'SKT', data: d.skt, borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 2 },
+                            { label: 'SKB', data: d.skb, borderColor: '#D85A30', backgroundColor: 'rgba(216,90,48,0.1)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 2 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { font: { size: 8 } } },
+                            y: { grid: { color: '#F1F3F5' }, ticks: { font: { size: 7 }, callback: v => v/1000+'K' } }
+                        }
+                    }
+                }));
+            });
+        }
+        
+        function updateTierdown(tab) {
+            const d = data.tierdown[tab];
+            document.getElementById('tierdownContainer').innerHTML = `
+                <div class="tier-item">
+                    <div class="tier-brand skt">SKT</div>
+                    <div><span class="tier-value">${d.skt}</span><span class="tier-unit">%</span></div>
+                    <div>${badge(d.sktDelta)}</div>
+                </div>
+                <div class="tier-item">
+                    <div class="tier-brand skb">SKB</div>
+                    <div><span class="tier-value">${d.skb}</span><span class="tier-unit">%</span></div>
+                    <div>${badge(d.skbDelta)}</div>
+                </div>
+            `;
+        }
+        
+        function updateFinance(tab) {
+            const skt = data.finance[tab].SKT;
+            const skb = data.finance[tab].SKB;
+            const items = [
+                { label: '청구매출', skt: skt.billing, skb: skb.billing, unit: '억' },
+                { label: '누적ARPU', skt: skt.arpuCum, skb: skb.arpuCum, unit: '원' },
+                { label: '신규ARPU', skt: skt.arpuNew, skb: skb.arpuNew, unit: '원' },
+                { label: '유치비용', skt: skt.cost, skb: skb.cost, unit: '원' },
+                { label: 'SAC', skt: skt.sac, skb: skb.sac, unit: '원' },
+                { label: 'SRC', skt: skt.src, skb: skb.src, unit: '원' }
+            ];
+            document.getElementById('financeContainer').innerHTML = items.map(it => `
+                <div class="mini-card">
+                    <div class="mini-card-title">${it.label}</div>
+                    <div class="mini-card-values">
+                        <div class="mini-value"><div class="mini-brand skt">SKT</div><div class="mini-num">${fmt(it.skt)}<span class="mini-unit">${it.unit}</span></div></div>
+                        <div class="mini-value"><div class="mini-brand skb">SKB</div><div class="mini-num">${fmt(it.skb)}<span class="mini-unit">${it.unit}</span></div></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateSQ() {
+            document.getElementById('sqContainer').innerHTML = data.sq.map(it => `
+                <div class="sq-card">
+                    <div class="sq-product">${it.product}</div>
+                    <div class="sq-row">
+                        <div class="sq-item"><div class="sq-brand skt">SKT</div><div class="sq-rate">${it.sktRate}%</div><div class="sq-count">${fmt(it.sktCount)}건</div></div>
+                        <div class="sq-item"><div class="sq-brand skb">SKB</div><div class="sq-rate">${it.skbRate}%</div><div class="sq-count">${fmt(it.skbCount)}건</div></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateAbnormal() {
+            const items = [
+                { label: '단기해지', data: data.abnormal.shortterm },
+                { label: '해지재가입', data: data.abnormal.rejoin }
+            ];
+            document.getElementById('abnormalContainer').innerHTML = items.map(it => `
+                <div class="abnormal-item">
+                    <div class="abnormal-type">${it.label}</div>
+                    <div class="abnormal-total">
+                        <span class="abnormal-num">${fmt(it.data.total)}</span>
+                        <span class="abnormal-unit">건</span>
+                        ${badge(it.data.delta)}
+                    </div>
+                    <div class="abnormal-brands">
+                        <div class="abnormal-brand-item"><span class="abnormal-brand-dot skt"></span> SKT ${fmt(it.data.skt)}건</div>
+                        <div class="abnormal-brand-item"><span class="abnormal-brand-dot skb"></span> SKB ${fmt(it.data.skb)}건</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateGR() {
+            document.getElementById('grContainer').innerHTML = `
+                <div class="gr-card">
+                    <div class="gr-card-title">📦 Giga 번들</div>
+                    <div class="gr-values">
+                        <div class="gr-item">
+                            <div class="gr-brand skt">SKT</div>
+                            <div class="gr-num">${fmt(data.gr.bundle.skt)}<span class="gr-unit">원</span></div>
+                            <div class="gr-badge-wrap">${badge(data.gr.bundle.sktDelta)}</div>
+                        </div>
+                        <div class="gr-item">
+                            <div class="gr-brand skb">SKB</div>
+                            <div class="gr-num">${fmt(data.gr.bundle.skb)}<span class="gr-unit">원</span></div>
+                            <div class="gr-badge-wrap">${badge(data.gr.bundle.skbDelta)}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="gr-card">
+                    <div class="gr-card-title">🔷 Giga 동판</div>
+                    <div class="gr-values">
+                        <div class="gr-item">
+                            <div class="gr-brand skt">SKT</div>
+                            <div class="gr-num">${fmt(data.gr.dong.skt)}<span class="gr-unit">원</span></div>
+                            <div class="gr-badge-wrap">${badge(data.gr.dong.sktDelta)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function switchTab(tab, btn) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('sectionLabel').textContent = tab + ' 실적';
+            updatePerformance(tab);
+            updateChannels(tab);
+            updateSubscribers(tab);
+            updateTierdown(tab);
+            updateFinance(tab);
+        }
+        
+        function init() {
+            document.getElementById('dateInput').valueAsDate = new Date();
+            switchTab('초고속', document.querySelector('.tab.active'));
+            updateSQ();
+            updateAbnormal();
+            updateGR();
+        }
+        
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
